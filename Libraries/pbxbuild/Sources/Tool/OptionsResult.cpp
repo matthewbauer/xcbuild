@@ -80,10 +80,24 @@ AddOptionArgumentValue(std::vector<std::string> *arguments, pbxsetting::Environm
 }
 
 static void
+AddOptionArgumentPath(std::vector<std::string> *arguments, pbxsetting::Environment const &environment, std::vector<pbxsetting::Value> const &args, std::string const &value)
+{
+  AddOptionArgumentValue(arguments, environment, args, "\"" + value + "\"");
+}
+
+static void
 AddOptionArgumentValues(std::vector<std::string> *arguments, pbxsetting::Environment const &environment, std::string const &workingDirectory, std::vector<pbxsetting::Value> const &args, pbxspec::PBX::PropertyOption::shared_ptr const &option)
 {
-    if ((option->type() == "StringList" || option->type() == "stringlist") ||
-        (option->type() == "PathList" || option->type() == "pathlist")) {
+    if (option->type() == "PathList" || option->type() == "pathlist") {
+        std::vector<std::string> values = pbxsetting::Type::ParseList(environment.resolve(option->name()));
+        if (option->flattenRecursiveSearchPathsInValue()) {
+            values = Tool::SearchPaths::ExpandRecursive(values, environment, workingDirectory);
+        }
+
+        for (std::string const &value : values) {
+            AddOptionArgumentPath(arguments, environment, args, value);
+        }
+    } else if ((option->type() == "StringList" || option->type() == "stringlist")) {
         std::vector<std::string> values = pbxsetting::Type::ParseList(environment.resolve(option->name()));
         if (option->flattenRecursiveSearchPathsInValue()) {
             values = Tool::SearchPaths::ExpandRecursive(values, environment, workingDirectory);
@@ -92,6 +106,9 @@ AddOptionArgumentValues(std::vector<std::string> *arguments, pbxsetting::Environ
         for (std::string const &value : values) {
             AddOptionArgumentValue(arguments, environment, args, value);
         }
+    } else if (option->type() == "Path" || option->type() == "path") {
+        std::string value = environment.resolve(option->name());
+        AddOptionArgumentPath(arguments, environment, args, value);
     } else {
         std::string value = environment.resolve(option->name());
         AddOptionArgumentValue(arguments, environment, args, value);
